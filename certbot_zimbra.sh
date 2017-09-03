@@ -79,20 +79,20 @@ function patch_nginx() {
 	PATCHFILE=$(dirname $0)"/patches/zimbra_${DETECTED_ZIMBRA_VERSION}_letsencrypt_nginx.patch"
 
 	if [ ! -f "$PATCHFILE" ]; then
-		echo "Your Zimbra version is not currently supported (or patch subdir was not copied)"
+		echo "Your Zimbra version is not currently supported (${PATCHFILE} missing or patch subdir was not copied)"
 		exit 1;
 	fi
 
 	# Test if we need to patch nginx.conf.web.http.default
-	grep -Fxq '\\.well-known\\\|' /opt/zimbra/conf/nginx/includes/nginx.conf.web.http.default
-	if [ $? -eq 1 ]; then
+	$PATCH_BIN -N --dry-run --silent /opt/zimbra/conf/nginx/includes/nginx.conf.web.http.default < $PATCHFILE
+	if [ $? -eq 0 ]; then
 		echo "Patching /opt/zimbra/conf/nginx/includes/nginx.conf.web.http{s}.default";
-		$PATCH_BIN /opt/zimbra/conf/nginx/includes/nginx.conf.web.http.default < $PATCHFILE
+		$PATCH_BIN -N /opt/zimbra/conf/nginx/includes/nginx.conf.web.http.default < $PATCHFILE
 		if [ $? -ne 0 ]; then
 			echo "Patching http failed! File a bug with the output above"
 			exit 1;
 		fi
-		$PATCH_BIN /opt/zimbra/conf/nginx/includes/nginx.conf.web.https.default < $PATCHFILE
+		$PATCH_BIN -N /opt/zimbra/conf/nginx/includes/nginx.conf.web.https.default < $PATCHFILE
 		if [ $? -ne 0 ]; then
 			echo "Patching https failed! File a bug with the output above"
 			exit 1;
@@ -119,6 +119,17 @@ function request_certificate() {
 	fi
 
 	if [ "$RENEW_ONLY" == "yes" ]; then
+		renew=$($LEB_BIN renew)
+		if [ $? -ne 0 ]; then
+			echo "Renewing certificate via certbot failed!"
+			exit 1;
+		fi
+		
+        echo "$renew" | grep -q 'Cert not yet due for renewal' &>/dev/null
+		if [ $? -ne 0 ]; then
+			echo "Cert not yet due for renewal. Exiting"
+			exit 0;
+		fi
 		return
 	fi
 

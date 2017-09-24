@@ -119,7 +119,7 @@ function request_certificate() {
 	fi
 
 	if [ "$RENEW_ONLY" == "yes" ]; then
-		renew=$($LEB_BIN renew)
+		renew=$($LEB_BIN renew -w $WEBROOT)
 		if [ $? -ne 0 ]; then
 			echo "Renewing certificate via certbot failed!"
 			exit 1;
